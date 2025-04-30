@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simple P2P Chat</title>
+</head>
+<body>
+  <h2>P2P Chat</h2>
+  <textarea id="chat" rows="10" cols="50" readonly></textarea><br>
+  <input id="msg" type="text" placeholder="Type a message..." />
+  <button onclick="sendMessage()">Send</button>
+
+  <script>
+    const ws = new WebSocket('wss://' + location.host);
+    const peer = new RTCPeerConnection();
+    const chat = document.getElementById('chat');
+    const msgInput = document.getElementById('msg');
+    let dataChannel;
+    let username = prompt("Enter your name:");
+
+    let hasReceivedOffer = false;
+
+    ws.onopen = () => {
+      console.log("WebSocket connected");
+      setTimeout(() => {
+        if (!hasReceivedOffer) {
+          console.log("No offer received, starting connection...");
+          startConnection();
+        } else {
+          console.log("Offer already received, not starting a connection.");
+        }
+      }, 1000);
+    };
+
+    peer.onconnectionstatechange = () => {
+      console.log("Connection state:", peer.connectionState);
+    };
+
+    // Handle incoming signaling messages
+    ws.onmessage = async ({ data }) => {
+      // ✅ Convert Blob to text if necessary
+      if (data instanceof Blob) {
+        data = await data.text();
+      }
+
+      const msg = JSON.parse(data); // ✅ Safe to parse now
+
+      if (msg.offer) {
+        hasReceivedOffer = true;
+        console.log("Received offer");
+        await peer.setRemoteDescription(new RTCSessionDescription(msg.offer));
+        const answer = await peer.createAnswer();
+        await peer.setLocalDescription(answer);
+        ws.send(JSON.stringify({ answer }));
+      } else if (msg.answer) {
+        await peer.setRemoteDescription(new RTCSessionDescription(msg.answer));
+      } else if (msg.candidate) {
+        await peer.addIceCandidate(new RTCIceCandidate(msg.candidate));
+      }
+    };
+
+
+    peer.onicecandidate = (e) => {
+      if (e.candidate) {
+        ws.send(JSON.stringify({ candidate: e.candidate }));
+      }
+    };
+
+    peer.ondatachannel = (e) => {
+      dataChannel = e.channel;
+      setupChannel();
+    };
+
+    function setupChannel() {
+      dataChannel.onopen = () => {
+        console.log("✅ Data channel is open");
+        msgInput.disabled = false; // Enable the input when the channel is open
+      };
+
+      dataChannel.onerror = (err) => {
+        console.error("DataChannel error:", err);
+      };
+
+      dataChannel.onmessage = (e) => {
+        const msgObj = JSON.parse(e.data);
+        chat.value += msgObj.name + ": " + msgObj.message + "\n";
+      };
+    }
+
+
+    async function startConnection() {
+      dataChannel = peer.createDataChannel("chat");
+      setupChannel();
+
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      ws.send(JSON.stringify({ offer }));
+    }
+
+    function sendMessage() {
+      console.log("Attempting to send message...");
+
+      if (!dataChannel || dataChannel.readyState !== "open") {
+        console.log("❌ DataChannel is not ready yet.");
+        alert("Connection not ready yet!");
+        return;
+      }
+
+      const msg = msgInput.value;
+      const msgObj = {
+        name: "You (" + username + ")",
+        message: msg
+      };
+      dataChannel.send(JSON.stringify({ name: username, message: msg }));
+      chat.value += msgObj.name + ": " + msg + "\n";
+      msgInput.value = "";
+    }
+    
+  </script>
+
+</body>
+</html>
