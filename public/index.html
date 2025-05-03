@@ -1,13 +1,22 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Simple P2P Chat</title>
+  <title>P2P chat project</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
 </head>
-<body>
-  <h2>P2P Chat</h2>
-  <textarea id="chat" rows="10" cols="50" readonly></textarea><br>
-  <input id="msg" type="text" placeholder="Type a message..." />
-  <button onclick="sendMessage()">Send</button>
+<body onload="noticeBot()">
+  <div id="nav">
+    <li><a href="authors.html">Authors</a></li>
+  </div>
+
+  <div id="container">
+    <h2>Peer 2 Peer Chat</h2>
+    <textarea id="chat" rows="20" cols="100" readonly></textarea><br>
+    <input id="msg" type="text" placeholder="Type a message..." />
+    <button id="tap" onclick="sendMessage()">Send</button>
+  </div>
 
   <script>
     const ws = new WebSocket('wss://' + location.host);
@@ -40,12 +49,12 @@
 
     // Handle incoming signaling messages
     ws.onmessage = async ({ data }) => {
-      // ✅ Convert Blob to text if necessary
+      //  Convert Blob to text if necessary
       if (data instanceof Blob) {
         data = await data.text();
       }
 
-      const msg = JSON.parse(data); // ✅ Safe to parse now
+      const msg = JSON.parse(data); //  Safe to parse now
 
       if (msg.offer) {
         hasReceivedOffer = true;
@@ -117,7 +126,25 @@
       chat.value += msgObj.name + ": " + msg + "\n";
       msgInput.value = "";
     }
-    
+
+    function noticeBot() {
+      console.log("Bot has notified the user");
+      
+      const botMesseges = [
+        "Hi!! im YoshiBot, you can see the messages here, heh\n",
+        "Emojis dont work btw\n",
+        "to make this work there should only be 2 users connected to this website\n",
+        "or else the connection will get confused and fail\n",
+        "Enjoy\n"
+      ];
+
+      for (let x = 0; x < botMesseges.length; x++) {
+        setTimeout(() => {
+          console.log("Wait");
+          chat.value += "YoshiBOT (BOT): " + botMesseges[x];
+        }, x * 1500);
+      }
+    }
   </script>
 
 </body>
